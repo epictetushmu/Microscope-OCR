@@ -20,5 +20,5 @@ This project focuses on OCR-based recognition of small electronic components und
 - **Software Requirements**:
   - Python 3.7+
   - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
-  - Additional Python libraries: `opencv-python`, `pytesseract`, `numpy`
+  - Additional Python libraries: `opencv-python`, `numpy` , `time` , `BeautifulSoup` , `requests`
   
