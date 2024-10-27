@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import pytesseract
 from spellchecker import SpellChecker
+from collections import Counter
 
 # Path to Tesseract OCR executable
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'  # Adjust path if needed
@@ -72,6 +73,9 @@ def main():
         print("Error: Could not open video device.")
         return
 
+    # Initialize a counter to store detected words
+    word_counter = Counter()
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -94,7 +98,18 @@ def main():
         if detected_text:
             corrected_text = correct_spelling(detected_text)  # Correct spelling
             print("Detected Text:", corrected_text)
-            cv2.putText(frame, corrected_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 2)
+
+            # Split corrected text into words and update the counter
+            for word in corrected_text.split():
+                word_counter[word] += 1
+
+            # Combine the most common words to form the expected text
+            expected_text = analyze_expected_words(word_counter)
+            print("Expected Text:", expected_text)
+
+            # Display the detected and expected texts on the frame
+            cv2.putText(frame, f"Detected: {corrected_text}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 2)
+            cv2.putText(frame, f"Expected: {expected_text}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
         cv2.imshow("Original Live Feed", frame)
         cv2.imshow("Preprocessed for OCR", preprocessed_frame)
@@ -104,6 +119,17 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
+
+def analyze_expected_words(word_counter):
+    """Analyze the word counts and find the most probable expected words."""
+    most_common = word_counter.most_common(2)  # Get top 2 common words
+    expected_text = []
+
+    # Combine high-frequency words to form expected phrases
+    for word, count in most_common:
+        expected_text.append(word)
+
+    return ' '.join(expected_text)
 
 if __name__ == "__main__":
     main()

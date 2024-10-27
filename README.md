@@ -1,24 +1,56 @@
 # Microscope OCR
 
-Microscope OCR is a tool designed to recognize and identify electronic components through a microscope feed, providing automatic detection and essential information retrieval. The OCR functionality can be used with any microscope setup that provides a digital image feed, making it versatile for electronics hobbyists and professionals alike.
+Microscope OCR is a powerful tool designed to recognize and identify electronic components through a microscope feed, providing automatic detection and essential information retrieval. This OCR functionality can be seamlessly integrated with any microscope setup that provides a digital image feed, making it versatile for both electronics hobbyists and professionals.
 
 ## Project Overview
 
-This project focuses on OCR-based recognition of small electronic components under a microscope. Once detected, the tool provides useful information like datasheets, color codes, and component specs. Current functionality includes identifying resistors (via color codes), ICs, and other common components.
+This project focuses on OCR-based recognition of small electronic components under a microscope. Once detected, the tool provides useful information like datasheets, color codes, and component specifications. Current functionality includes identifying resistors (via color codes), integrated circuits (ICs), and other common electronic components.
 
 ### Key Features
 - **Universal Compatibility**: Works with any microscope setup that outputs a digital feed.
 - **Component Detection**:
   - **Resistor Color Codes**: Identifies resistance values from color bands.
   - **IC Recognition**: Detects IC part numbers and searches for datasheets.
-  - **Other Components**: Expanding detection for diodes, capacitors, etc.
-- **Automated Datasheet Lookup**: Retrieves datasheets and specs for recognized components.
+  - **Other Components**: Expanding detection capabilities for diodes, capacitors, and more.
+- **Automated Datasheet Lookup**: Retrieves datasheets and specifications for recognized components.
 
 ## Getting Started
 
 ### Prerequisites
+To run the Microscope OCR tool, ensure you have the following software and libraries installed:
+
 - **Software Requirements**:
-  - Python 3.7+
-  - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
-  - Additional Python libraries: `opencv-python`, `numpy` , `time` , `BeautifulSoup` , `requests`
+  - Python 3.7 or higher
+  - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) (ensure it is properly installed and configured)
   
+- **Python Libraries**: Install the required libraries using pip:
+  ```bash
+  pip install opencv-python numpy BeautifulSoup4 requests
+  ```
+
+### Future Enhancements
+- **Expanded Component Recognition**: Develop recognition capabilities for additional components like transistors, capacitors, and inductors.
+- **User Interface**: Create a user-friendly GUI for easier interaction and functionality access.
+- **Improved OCR Accuracy**: Implement additional preprocessing techniques to enhance OCR accuracy in various lighting conditions.
+
+## Contributing
+Contributions are welcome! If you have suggestions for improvements or would like to add new features, please fork the repository and submit a pull request.
+
+## License
+
+This project is licensed under the terms of the **GNU General Public License v3.0**. This means you can freely use, modify, and distribute the software, but you must keep the same license for any derivative works. 
+
+For a copy of the license, see the [LICENSE](LICENSE) file or visit [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.html).
+
+### Key Points of the License:
+- **Freedom to Use**: You can use the software for any purpose.
+- **Freedom to Study and Modify**: You can study how the program works, and change it to make it do what you wish. Access to the source code is a precondition for this.
+- **Freedom to Distribute**: You can redistribute copies of the original program so you can help others.
+- **Freedom to Distribute Modified Versions**: You can distribute copies of your modified versions to others. By doing this you can give the whole community a chance to benefit from your changes. Access to the source code is a precondition for this.
+
+Please refer to the LICENSE file for more detailed information.
+
+## Acknowledgments
+- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) for the OCR engine.
+- [OpenCV](https://opencv.org/) for image processing capabilities.
+- The open-source community for inspiration and collaboration.
