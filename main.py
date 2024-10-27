@@ -11,24 +11,16 @@ def perform_ocr(image):
     return boxes
 
 def preprocess_image(frame):
-    # Convert to grayscale
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    
-    # Apply stronger Gaussian blur to reduce noise
-    blurred = cv2.GaussianBlur(gray, (11, 11), 0)  # Increased kernel size for more blurring
-
-    # Apply median filtering with a larger kernel to further reduce noise
-    median_filtered = cv2.medianBlur(blurred, 9)  # Increased kernel size
-
-    # Apply adaptive thresholding
-    thresh = cv2.adaptiveThreshold(median_filtered, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                   cv2.THRESH_BINARY, 11, 2)
-
-    # Optional: Morphological operations to remove small noise after thresholding
-    kernel_morph = np.ones((3, 3), np.uint8)  # Structuring element for morphological operations
-    morph = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_morph)  # Closing operation to fill small holes
-
-    return morph
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    contrast_enhanced = clahe.apply(gray)
+    denoised = cv2.fastNlMeansDenoising(contrast_enhanced, None, h=30, templateWindowSize=7, searchWindowSize=21)
+    blurred = cv2.GaussianBlur(denoised, (7, 7), 0)
+    thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                   cv2.THRESH_BINARY_INV, 11, 2)
+    kernel = np.ones((2, 2), np.uint8)
+    morph_open = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+    return morph_open
 
 def main():
     cap = cv2.VideoCapture(0)
@@ -36,31 +28,31 @@ def main():
         print("Error: Could not open video device.")
         return
 
+    confidence_threshold = 50
+
     while True:
         ret, frame = cap.read()
         if not ret:
             print("Error: Could not read frame.")
             break
         
-        # Preprocess the image for better OCR results
+        frame = cv2.resize(frame, (640, 480))
         preprocessed_frame = preprocess_image(frame)
         boxes = perform_ocr(preprocessed_frame)
         
         detected_text = ""
         n_boxes = len(boxes['level'])
         for i in range(n_boxes):
-            if boxes['conf'][i] > 0:
+            if int(boxes['conf'][i]) > confidence_threshold:
                 (x, y, w, h) = (boxes['left'][i], boxes['top'][i], boxes['width'][i], boxes['height'][i])
-                # Draw rectangles on the original frame
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                # Draw rectangles on the preprocessed frame for visualization
-                cv2.rectangle(preprocessed_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (50, 50, 50), 2)
+                cv2.rectangle(preprocessed_frame, (x, y), (x + w, y + h), (50, 50, 50), 2)
                 detected_text += boxes['text'][i] + " "
 
         if detected_text.strip():
             print("Detected Text:", detected_text.strip())
+            cv2.putText(frame, detected_text.strip(), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 2)
 
-        # Display both the original frame and the preprocessed frame
         cv2.imshow("Original Live Feed", frame)
         cv2.imshow("Preprocessed for OCR", preprocessed_frame)
 
