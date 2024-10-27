@@ -42,14 +42,6 @@ This project is licensed under the terms of the **GNU General Public License v3.
 
 For a copy of the license, see the [LICENSE](LICENSE) file or visit [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.html).
 
-### Key Points of the License:
-- **Freedom to Use**: You can use the software for any purpose.
-- **Freedom to Study and Modify**: You can study how the program works, and change it to make it do what you wish. Access to the source code is a precondition for this.
-- **Freedom to Distribute**: You can redistribute copies of the original program so you can help others.
-- **Freedom to Distribute Modified Versions**: You can distribute copies of your modified versions to others. By doing this you can give the whole community a chance to benefit from your changes. Access to the source code is a precondition for this.
-
-Please refer to the LICENSE file for more detailed information.
-
 ## Acknowledgments
 - [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) for the OCR engine.
 - [OpenCV](https://opencv.org/) for image processing capabilities.
