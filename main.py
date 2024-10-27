@@ -1,22 +1,46 @@
 import cv2
 import numpy as np
 import pytesseract
+from spellchecker import SpellChecker
 
 # Path to Tesseract OCR executable
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'  # Adjust path if needed
 
+# Initialize the spell checker
+spell = SpellChecker()
+
 def perform_ocr(image):
-    """Perform OCR on the preprocessed image."""
-    custom_config = r'--oem 3 --psm 6'
+    """Perform OCR on the preprocessed image using LSTM engine."""
+    custom_config = r'--oem 3 --psm 6'  # Use OEM 3 for LSTM engine
     return pytesseract.image_to_data(image, config=custom_config, output_type=pytesseract.Output.DICT)
+
+def sharpen_image(image):
+    """Sharpen the image to enhance text clarity."""
+    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+    return cv2.filter2D(image, -1, kernel)
+
+def correct_spelling(text):
+    """Correct spelling of detected text using a spell checker."""
+    words = text.split()
+    corrected = []
+    
+    for word in words:
+        # Get the best candidate for each word
+        candidates = spell.candidates(word)
+        # Select the first candidate if there are any candidates
+        corrected_word = next(iter(candidates), word) if candidates else word
+        corrected.append(corrected_word)
+    
+    return ' '.join(corrected)
 
 def preprocess_image(frame):
     """Preprocess the image for better OCR results."""
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     contrast_enhanced = clahe.apply(gray)
-    denoised = cv2.fastNlMeansDenoising(contrast_enhanced, None, h=30, templateWindowSize=7, searchWindowSize=21)
-    blurred = cv2.GaussianBlur(denoised, (7, 7), 0)
+    sharpened = sharpen_image(contrast_enhanced)
+    denoised = cv2.fastNlMeansDenoising(sharpened, None, h=30, templateWindowSize=7, searchWindowSize=21)
+    blurred = cv2.GaussianBlur(denoised, (5, 5), 0)  # Use smaller kernel for Gaussian Blur
     thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
                                    cv2.THRESH_BINARY_INV, 11, 2)
     kernel = np.ones((2, 2), np.uint8)
@@ -24,7 +48,7 @@ def preprocess_image(frame):
     return morph_open
 
 def draw_boxes(frame, boxes, dynamic_threshold):
-    """Draw bounding boxes around detected text."""
+    """Draw bounding boxes around detected text and collect detected text."""
     detected_text = ""
     n_boxes = len(boxes['level'])
     
@@ -39,6 +63,11 @@ def draw_boxes(frame, boxes, dynamic_threshold):
 def main():
     """Main function to capture video and perform OCR."""
     cap = cv2.VideoCapture(0)
+
+    # Set camera resolution to a lower value for better performance
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
     if not cap.isOpened():
         print("Error: Could not open video device.")
         return
@@ -49,7 +78,10 @@ def main():
             print("Error: Could not read frame.")
             break
         
+        # Resize frame to reduce processing load
         frame = cv2.resize(frame, (640, 480))
+        
+        # Perform preprocessing and OCR
         preprocessed_frame = preprocess_image(frame)
         boxes = perform_ocr(preprocessed_frame)
 
@@ -60,8 +92,9 @@ def main():
         detected_text = draw_boxes(frame, boxes, dynamic_threshold)
 
         if detected_text:
-            print("Detected Text:", detected_text)
-            cv2.putText(frame, detected_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 2)
+            corrected_text = correct_spelling(detected_text)  # Correct spelling
+            print("Detected Text:", corrected_text)
+            cv2.putText(frame, corrected_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 2)
 
         cv2.imshow("Original Live Feed", frame)
         cv2.imshow("Preprocessed for OCR", preprocessed_frame)
