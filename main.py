@@ -28,8 +28,6 @@ def main():
         print("Error: Could not open video device.")
         return
 
-    confidence_threshold = 50
-
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -39,11 +37,19 @@ def main():
         frame = cv2.resize(frame, (640, 480))
         preprocessed_frame = preprocess_image(frame)
         boxes = perform_ocr(preprocessed_frame)
+
+        confidences = np.array(boxes['conf'])
+        
+        # Check if there are valid confidence values
+        if np.any(confidences > 0):
+            dynamic_threshold = np.percentile(confidences[confidences > 0], 75)  # 75th percentile of non-zero confidences
+        else:
+            dynamic_threshold = 0  # Fallback threshold if no valid scores are found
         
         detected_text = ""
         n_boxes = len(boxes['level'])
         for i in range(n_boxes):
-            if int(boxes['conf'][i]) > confidence_threshold:
+            if int(boxes['conf'][i]) > dynamic_threshold:  # Use dynamic threshold
                 (x, y, w, h) = (boxes['left'][i], boxes['top'][i], boxes['width'][i], boxes['height'][i])
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (50, 50, 50), 2)
                 cv2.rectangle(preprocessed_frame, (x, y), (x + w, y + h), (50, 50, 50), 2)
