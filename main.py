@@ -16,6 +16,8 @@ sharpen_kernel_value = 1  # Default sharpening kernel value (1 to 3)
 invert_colors = False      # Flag for inverting colors
 denoise_h = 30            # Denoising parameter
 morph_kernel_size = 2     # Size for morphological operations
+spell_check_enabled = True  # Flag for enabling/disabling spell check
+use_preprocessed_image = True  # Flag to choose between original or preprocessed image for OCR
 
 def perform_ocr(image):
     """Perform OCR on the preprocessed image using LSTM engine."""
@@ -101,6 +103,16 @@ def toggle_invert_colors(value):
     global invert_colors
     invert_colors = bool(value)
 
+def toggle_spell_check(value):
+    """Toggle spell checking based on trackbar."""
+    global spell_check_enabled
+    spell_check_enabled = bool(value)
+
+def toggle_image_source(value):
+    """Toggle between original and preprocessed image for OCR."""
+    global use_preprocessed_image
+    use_preprocessed_image = bool(value)
+
 def main():
     """Main function to capture video and perform OCR.""" 
     cap = cv2.VideoCapture(1)
@@ -120,6 +132,8 @@ def main():
     cv2.createTrackbar("Denoise Parameter", "Settings", 10, 100, update_denoise_h)  # Range from 10 to 100
     cv2.createTrackbar("Morph Kernel Size", "Settings", 2, 10, update_morph_kernel)  # Range from 2 to 10
     cv2.createTrackbar("Invert Colors", "Settings", 0, 1, toggle_invert_colors)  # Toggle for invert colors
+    cv2.createTrackbar("Spell Check", "Settings", 1, 1, toggle_spell_check)  # Toggle for spell checking
+    cv2.createTrackbar("Use Preprocessed", "Settings", 1, 1, toggle_image_source)  # Toggle for using preprocessed image
 
     # Initialize a counter to store detected words
     word_counter = Counter()
@@ -133,9 +147,14 @@ def main():
         # Resize frame to reduce processing load
         frame = cv2.resize(frame, (640, 480))
         
-        # Perform preprocessing and OCR
+        # Perform preprocessing
         preprocessed_frame = preprocess_image(frame)
-        boxes = perform_ocr(preprocessed_frame)
+        
+        # Choose between original or preprocessed for OCR
+        ocr_frame = preprocessed_frame if use_preprocessed_image else frame
+        
+        # Perform OCR
+        boxes = perform_ocr(ocr_frame)
 
         # Compute dynamic threshold
         confidences = np.array(boxes['conf'])
@@ -144,7 +163,10 @@ def main():
         detected_text = draw_boxes(frame, boxes, dynamic_threshold)
 
         if detected_text:
-            corrected_text = correct_spelling(detected_text)  # Correct spelling
+            corrected_text = detected_text
+            if spell_check_enabled:
+                corrected_text = correct_spelling(detected_text)  # Correct spelling if enabled
+            
             print("Detected Text:", corrected_text)
 
             # Split corrected text into words and update the counter
