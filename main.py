@@ -10,14 +10,21 @@ pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tessera
 # Initialize the spell checker
 spell = SpellChecker()
 
+# Global variables for trackbar values
+gaussian_blur_value = 5  # Default Gaussian blur value (should be odd)
+sharpen_kernel_value = 1  # Default sharpening kernel value (1 to 3)
+invert_colors = False      # Flag for inverting colors
+denoise_h = 30            # Denoising parameter
+morph_kernel_size = 2     # Size for morphological operations
+
 def perform_ocr(image):
     """Perform OCR on the preprocessed image using LSTM engine."""
     custom_config = r'--oem 3 --psm 6'  # Use OEM 3 for LSTM engine
     return pytesseract.image_to_data(image, config=custom_config, output_type=pytesseract.Output.DICT)
 
-def sharpen_image(image):
+def sharpen_image(image, kernel_value):
     """Sharpen the image to enhance text clarity."""
-    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+    kernel = np.array([[0, -1, 0], [-1, 5 + kernel_value, -1], [0, -1, 0]])
     return cv2.filter2D(image, -1, kernel)
 
 def correct_spelling(text):
@@ -36,17 +43,25 @@ def correct_spelling(text):
 
 def preprocess_image(frame):
     """Preprocess the image for better OCR results."""
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    contrast_enhanced = clahe.apply(gray)
-    sharpened = sharpen_image(contrast_enhanced)
-    denoised = cv2.fastNlMeansDenoising(sharpened, None, h=30, templateWindowSize=7, searchWindowSize=21)
-    blurred = cv2.GaussianBlur(denoised, (5, 5), 0)  # Use smaller kernel for Gaussian Blur
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)  # Convert to grayscale
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))  # Create CLAHE object
+    contrast_enhanced = clahe.apply(gray)  # Apply CLAHE to the grayscale image
+    sharpened = sharpen_image(contrast_enhanced, sharpen_kernel_value)  # Sharpen the image
+    denoised = cv2.fastNlMeansDenoising(sharpened, None, h=denoise_h, templateWindowSize=7, searchWindowSize=21)  # Denoising
+    blurred = cv2.GaussianBlur(denoised, (gaussian_blur_value, gaussian_blur_value), 0)  # Apply Gaussian Blur
+    
+    # Adaptive Thresholding
     thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
                                    cv2.THRESH_BINARY_INV, 11, 2)
-    kernel = np.ones((2, 2), np.uint8)
+    
+    # Morphological Operations
+    kernel = np.ones((morph_kernel_size, morph_kernel_size), np.uint8)
     morph_open = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-    return morph_open
+    
+    if invert_colors:
+        inverted = cv2.bitwise_not(morph_open)  # Invert the image colors
+        return inverted  # Return the inverted image directly
+    return morph_open  # Return the final processed image
 
 def draw_boxes(frame, boxes, dynamic_threshold):
     """Draw bounding boxes around detected text and collect detected text."""
@@ -61,9 +76,34 @@ def draw_boxes(frame, boxes, dynamic_threshold):
     
     return detected_text.strip()
 
+def update_gaussian_blur(value):
+    """Update Gaussian blur value from trackbar.""" 
+    global gaussian_blur_value
+    gaussian_blur_value = value if value % 2 == 1 else value + 1  # Ensure it's odd
+
+def update_sharpen_kernel(value):
+    """Update sharpening kernel value from trackbar.""" 
+    global sharpen_kernel_value
+    sharpen_kernel_value = value
+
+def update_denoise_h(value):
+    """Update denoising parameter from trackbar."""
+    global denoise_h
+    denoise_h = value
+
+def update_morph_kernel(value):
+    """Update morphological kernel size from trackbar."""
+    global morph_kernel_size
+    morph_kernel_size = value if value % 2 == 1 else value + 1  # Ensure it's odd
+
+def toggle_invert_colors(value):
+    """Toggle color inversion based on trackbar.""" 
+    global invert_colors
+    invert_colors = bool(value)
+
 def main():
-    """Main function to capture video and perform OCR."""
-    cap = cv2.VideoCapture(0)
+    """Main function to capture video and perform OCR.""" 
+    cap = cv2.VideoCapture(1)
 
     # Set camera resolution to a lower value for better performance
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -72,6 +112,14 @@ def main():
     if not cap.isOpened():
         print("Error: Could not open video device.")
         return
+
+    # Create a window for adjustments
+    cv2.namedWindow("Settings")
+    cv2.createTrackbar("Gaussian Blur", "Settings", 1, 20, update_gaussian_blur)  # Range from 1 to 20
+    cv2.createTrackbar("Sharpen Kernel", "Settings", 1, 5, update_sharpen_kernel)  # Range from 1 to 5
+    cv2.createTrackbar("Denoise Parameter", "Settings", 10, 100, update_denoise_h)  # Range from 10 to 100
+    cv2.createTrackbar("Morph Kernel Size", "Settings", 2, 10, update_morph_kernel)  # Range from 2 to 10
+    cv2.createTrackbar("Invert Colors", "Settings", 0, 1, toggle_invert_colors)  # Toggle for invert colors
 
     # Initialize a counter to store detected words
     word_counter = Counter()
@@ -121,7 +169,7 @@ def main():
     cv2.destroyAllWindows()
 
 def analyze_expected_words(word_counter):
-    """Analyze the word counts and find the most probable expected words."""
+    """Analyze the word counts and find the most probable expected words.""" 
     most_common = word_counter.most_common(2)  # Get top 2 common words
     expected_text = []
 
