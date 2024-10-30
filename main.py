@@ -113,8 +113,15 @@ def toggle_image_source(value):
     global use_preprocessed_image
     use_preprocessed_image = bool(value)
 
+def update_zoom(value):
+    """Update zoom level from trackbar."""
+    global zoom_level
+    zoom_level = max(1, value)  # Ensure minimum zoom level is 1
+
+
 def main():
     """Main function to capture video and perform OCR.""" 
+    # Initialize video capture
     cap = cv2.VideoCapture(1)
 
     # Set camera resolution to a lower value for better performance
@@ -127,15 +134,15 @@ def main():
 
     # Create a window for adjustments
     cv2.namedWindow("Settings")
-    cv2.createTrackbar("Gaussian Blur", "Settings", 1, 20, update_gaussian_blur)  # Range from 1 to 20
-    cv2.createTrackbar("Sharpen Kernel", "Settings", 1, 5, update_sharpen_kernel)  # Range from 1 to 5
-    cv2.createTrackbar("Denoise Parameter", "Settings", 10, 100, update_denoise_h)  # Range from 10 to 100
-    cv2.createTrackbar("Morph Kernel Size", "Settings", 2, 10, update_morph_kernel)  # Range from 2 to 10
-    cv2.createTrackbar("Invert Colors", "Settings", 0, 1, toggle_invert_colors)  # Toggle for invert colors
-    cv2.createTrackbar("Spell Check", "Settings", 1, 1, toggle_spell_check)  # Toggle for spell checking
-    cv2.createTrackbar("Use Preprocessed", "Settings", 1, 1, toggle_image_source)  # Toggle for using preprocessed image
+    cv2.createTrackbar("Zoom Level", "Settings", 1, 5, update_zoom)
+    cv2.createTrackbar("Gaussian Blur", "Settings", 1, 20, update_gaussian_blur)
+    cv2.createTrackbar("Sharpen Kernel", "Settings", 1, 5, update_sharpen_kernel)
+    cv2.createTrackbar("Denoise Parameter", "Settings", 10, 100, update_denoise_h)
+    cv2.createTrackbar("Morph Kernel Size", "Settings", 2, 10, update_morph_kernel)
+    cv2.createTrackbar("Invert Colors", "Settings", 0, 1, toggle_invert_colors)
+    cv2.createTrackbar("Spell Check", "Settings", 1, 1, toggle_spell_check)
+    cv2.createTrackbar("Use Preprocessed", "Settings", 1, 1, toggle_image_source)
 
-    # Initialize a counter to store detected words
     word_counter = Counter()
 
     while True:
@@ -146,42 +153,48 @@ def main():
         
         # Resize frame to reduce processing load
         frame = cv2.resize(frame, (640, 480))
-        
-        # Perform preprocessing
-        preprocessed_frame = preprocess_image(frame)
-        
+
+        # Apply zoom effect
+        h, w = frame.shape[:2]
+        center_x, center_y = w // 2, h // 2
+        radius_x, radius_y = w // (2 * zoom_level), h // (2 * zoom_level)
+
+        # Crop and resize to create the zoom effect
+        cropped_frame = frame[center_y - radius_y:center_y + radius_y, center_x - radius_x:center_x + radius_x]
+        zoomed_frame = cv2.resize(cropped_frame, (w, h))
+
+        # Perform preprocessing on zoomed frame
+        preprocessed_frame = preprocess_image(zoomed_frame)
+
         # Choose between original or preprocessed for OCR
-        ocr_frame = preprocessed_frame if use_preprocessed_image else frame
-        
+        ocr_frame = preprocessed_frame if use_preprocessed_image else zoomed_frame
+
         # Perform OCR
         boxes = perform_ocr(ocr_frame)
 
         # Compute dynamic threshold
         confidences = np.array(boxes['conf'])
         dynamic_threshold = np.percentile(confidences[confidences > 0], 75) if np.any(confidences > 0) else 0
-        
-        detected_text = draw_boxes(frame, boxes, dynamic_threshold)
+
+        detected_text = draw_boxes(zoomed_frame, boxes, dynamic_threshold)
 
         if detected_text:
             corrected_text = detected_text
             if spell_check_enabled:
-                corrected_text = correct_spelling(detected_text)  # Correct spelling if enabled
-            
+                corrected_text = correct_spelling(detected_text)
+
             print("Detected Text:", corrected_text)
 
-            # Split corrected text into words and update the counter
             for word in corrected_text.split():
                 word_counter[word] += 1
 
-            # Combine the most common words to form the expected text
             expected_text = analyze_expected_words(word_counter)
             print("Expected Text:", expected_text)
 
-            # Display the detected and expected texts on the frame
-            cv2.putText(frame, f"Detected: {corrected_text}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 2)
-            cv2.putText(frame, f"Expected: {expected_text}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(zoomed_frame, f"Detected: {corrected_text}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 2)
+            cv2.putText(zoomed_frame, f"Expected: {expected_text}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-        cv2.imshow("Original Live Feed", frame)
+        cv2.imshow("Original Live Feed", zoomed_frame)
         cv2.imshow("Preprocessed for OCR", preprocessed_frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -189,7 +202,7 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
-
+    
 def analyze_expected_words(word_counter):
     """Analyze the word counts and find the most probable expected words.""" 
     most_common = word_counter.most_common(2)  # Get top 2 common words
