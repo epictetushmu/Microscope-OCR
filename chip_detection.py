@@ -3,6 +3,8 @@ import numpy as np
 import tkinter as tk
 from tkinter import filedialog, Label, Button, Toplevel
 from PIL import Image, ImageTk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class ObjectDetectorApp:
     def __init__(self, root):
@@ -18,12 +20,16 @@ class ObjectDetectorApp:
 
         self.detect_button = Button(root, text="Detect", command=self.detect_objects, state=tk.DISABLED)
         self.detect_button.pack()
+        
+        self.histogram_button = Button(root, text="Show Histogram", command=self.show_histogram, state=tk.DISABLED)
+        self.histogram_button.pack()
 
         self.image_label = Label(root)
         self.image_label.pack()
 
         self.image_path = None
         self.cv_image = None
+        self.gray_image = None
 
     def load_image(self):
         self.image_path = filedialog.askopenfilename(
@@ -31,8 +37,10 @@ class ObjectDetectorApp:
         )
         if self.image_path:
             self.cv_image = cv2.imread(self.image_path)
+            self.gray_image = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2GRAY)
             self.display_image(self.cv_image)
             self.detect_button.config(state=tk.NORMAL)
+            self.histogram_button.config(state=tk.NORMAL)
     
     def display_image(self, image):
         """Display image in main window."""
@@ -41,6 +49,52 @@ class ObjectDetectorApp:
         image_pil.thumbnail((400, 400))
         self.photo = ImageTk.PhotoImage(image_pil)
         self.image_label.config(image=self.photo)
+
+    def show_histogram(self):
+        """Display grayscale histogram in a new window."""
+        if self.gray_image is None:
+            return
+            
+        # Create a new window for the histogram
+        hist_window = Toplevel(self.root)
+        hist_window.title("Image Histogram")
+        hist_window.geometry("500x400")
+        
+        # Create figure and plot
+        fig = plt.Figure(figsize=(5, 4), dpi=100)
+        ax = fig.add_subplot(111)
+        
+        # Calculate histogram
+        hist = cv2.calcHist([self.gray_image], [0], None, [256], [0, 256])
+        
+        # Plot histogram
+        ax.plot(hist, color='black')
+        ax.set_xlim([0, 256])
+        ax.set_title('Grayscale Histogram')
+        ax.set_xlabel('Pixel Intensity')
+        ax.set_ylabel('Frequency')
+        ax.grid(True, alpha=0.3)
+        
+        # Add the plot to the window
+        canvas = FigureCanvasTkAgg(fig, master=hist_window)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        
+        # Add some histogram statistics
+        stats_frame = tk.Frame(hist_window)
+        stats_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        # Calculate statistics
+        min_val = np.min(self.gray_image)
+        max_val = np.max(self.gray_image)
+        mean_val = np.mean(self.gray_image)
+        std_val = np.std(self.gray_image)
+        median_val = np.median(self.gray_image)
+        
+        # Display statistics
+        stats_text = f"Min: {min_val:.1f}  Max: {max_val:.1f}  Mean: {mean_val:.1f}  Std Dev: {std_val:.1f}  Median: {median_val:.1f}"
+        stats_label = Label(stats_frame, text=stats_text)
+        stats_label.pack()
 
     def detect_objects(self):
         if self.cv_image is None:
@@ -169,8 +223,6 @@ class ObjectDetectorApp:
                                         best_verification_points = verification_points
 
         return best_candidate, best_verification_points
-
-
 
     def show_processing_steps(self, orig_img, gray, edges, closed_edges, contour_img, merged_contour_img, verification_img=None):
         """Displays processing steps in a grid layout."""
