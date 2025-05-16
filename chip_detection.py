@@ -26,7 +26,9 @@ class ObjectDetectorApp:
         self.cv_image = None
 
     def load_image(self):
-        self.image_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg;*.png;*.jpeg")])
+        self.image_path = filedialog.askopenfilename(
+            filetypes=[("Image Files", ("*.jpg", "*.jpeg", "*.png", "*.bmp", "*.tiff"))]
+        )
         if self.image_path:
             self.cv_image = cv2.imread(self.image_path)
             self.display_image(self.cv_image)

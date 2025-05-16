@@ -6,7 +6,7 @@ import pytesseract
 import numpy as np
 
 # Set path to tesseract executable (adjust as needed)
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 def preprocess_image(image_path):
     # Load the image using OpenCV

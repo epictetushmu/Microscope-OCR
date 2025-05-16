@@ -29,7 +29,7 @@ def save_masked_image():
         print(f"Masked image saved as {filename}")
 
 # Open the camera feed
-cap = cv2.VideoCapture(1)  # Use 0 for the default camera, 1 for an external camera
+cap = cv2.VideoCapture(0)  # Use 0 for the default camera, 1 for an external camera
 
 if not cap.isOpened():
     print("Error: Could not open the camera.")
