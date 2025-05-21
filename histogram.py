@@ -89,13 +89,20 @@ class ImageHistogramViewer:
         # Render button
         render_button = Button(hist_window, text="Render Selected Area", command=self.render_selected_range)
         render_button.pack(pady=10)
+        
+        # Find and display histogram peak
+        peak_idx = np.argmax(hist)
+        peak_value = int(hist[peak_idx])
+        peak_text = f"Histogram Peak: Intensity {peak_idx} (Count: {peak_value})"
+        peak_label = Label(hist_window, text=peak_text)
+        peak_label.pack(pady=5)
 
     def render_selected_range(self):
         if self.gray_image is None:
             return
 
         center = self.intensity_slider.get()
-        lower = max(0, center - 25)
+        lower = max(0, center)
         upper = min(255, center + 25)
 
         # Create mask and apply it
