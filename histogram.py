@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import tkinter as tk
-from tkinter import filedialog, Label, Button, Toplevel
+from tkinter import filedialog, Label, Button, Toplevel, Scale, HORIZONTAL
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -11,7 +11,6 @@ class ImageHistogramViewer:
         self.root = root
         self.root.title("Image Viewer and Histogram")
 
-        # UI Elements
         Label(root, text="Select an Image").pack()
 
         Button(root, text="Select Image", command=self.load_image).pack()
@@ -36,24 +35,22 @@ class ImageHistogramViewer:
             self.histogram_button.config(state=tk.NORMAL)
 
     def display_image(self, image):
-        """Display image in main window."""
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image_pil = Image.fromarray(image_rgb)
         image_pil.thumbnail((400, 400))
         self.photo = ImageTk.PhotoImage(image_pil)
         self.image_label.config(image=self.photo)
-        self.image_label.image = self.photo  # Prevent garbage collection
+        self.image_label.image = self.photo
 
     def show_histogram(self):
-        """Display grayscale histogram in a new window."""
         if self.gray_image is None:
             return
 
         hist_window = Toplevel(self.root)
         hist_window.title("Image Histogram")
-        hist_window.geometry("500x400")
+        hist_window.geometry("600x600")
 
-        fig = plt.Figure(figsize=(5, 4), dpi=100)
+        fig = plt.Figure(figsize=(5, 3), dpi=100)
         ax = fig.add_subplot(111)
 
         hist = cv2.calcHist([self.gray_image], [0], None, [256], [0, 256])
@@ -66,7 +63,7 @@ class ImageHistogramViewer:
 
         canvas = FigureCanvasTkAgg(fig, master=hist_window)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=False)
 
         stats_frame = tk.Frame(hist_window)
         stats_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -79,6 +76,46 @@ class ImageHistogramViewer:
 
         stats_text = f"Min: {min_val:.1f}  Max: {max_val:.1f}  Mean: {mean_val:.1f}  Std Dev: {std_val:.1f}  Median: {median_val:.1f}"
         Label(stats_frame, text=stats_text).pack()
+
+        # Slider frame
+        slider_frame = tk.Frame(hist_window)
+        slider_frame.pack(pady=10)
+
+        Label(slider_frame, text="Select Intensity Center:").pack()
+        self.intensity_slider = Scale(slider_frame, from_=0, to=255, orient=HORIZONTAL)
+        self.intensity_slider.set(int(mean_val))
+        self.intensity_slider.pack()
+
+        # Render button
+        render_button = Button(hist_window, text="Render Selected Area", command=self.render_selected_range)
+        render_button.pack(pady=10)
+
+    def render_selected_range(self):
+        if self.gray_image is None:
+            return
+
+        center = self.intensity_slider.get()
+        lower = max(0, center - 25)
+        upper = min(255, center + 25)
+
+        # Create mask and apply it
+        mask = cv2.inRange(self.gray_image, lower, upper)
+        filtered_image = cv2.bitwise_and(self.gray_image, self.gray_image, mask=mask)
+
+        # Convert to color image for display
+        display_img = cv2.cvtColor(filtered_image, cv2.COLOR_GRAY2RGB)
+
+        # Show in new window
+        result_window = Toplevel(self.root)
+        result_window.title(f"Filtered Image: {lower}–{upper}")
+
+        image_pil = Image.fromarray(display_img)
+        image_pil.thumbnail((400, 400))
+        tk_image = ImageTk.PhotoImage(image_pil)
+
+        label = Label(result_window, image=tk_image)
+        label.image = tk_image  # keep a reference
+        label.pack()
 
 if __name__ == "__main__":
     root = tk.Tk()
