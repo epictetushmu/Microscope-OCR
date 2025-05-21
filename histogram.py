@@ -81,10 +81,10 @@ class ImageHistogramViewer:
         slider_frame = tk.Frame(hist_window)
         slider_frame.pack(pady=10)
 
-        Label(slider_frame, text="Select Intensity Center:").pack()
-        self.intensity_slider = Scale(slider_frame, from_=0, to=255, orient=HORIZONTAL)
-        self.intensity_slider.set(int(mean_val))
-        self.intensity_slider.pack()
+        Label(slider_frame, text="Enter Intensity Center:").pack(side=tk.LEFT, padx=(0, 5))
+        self.intensity_entry = tk.Entry(slider_frame, width=5)
+        self.intensity_entry.insert(0, str(int(mean_val)))
+        self.intensity_entry.pack(side=tk.LEFT)
 
         # Render button
         render_button = Button(hist_window, text="Render Selected Area", command=self.render_selected_range)
@@ -101,9 +101,16 @@ class ImageHistogramViewer:
         if self.gray_image is None:
             return
 
-        center = self.intensity_slider.get()
-        lower = max(0, center)
-        upper = min(255, center + 25)
+        try:
+            center = int(self.intensity_entry.get())
+            # Ensure center is in valid range
+            center = max(0, min(255, center))
+        except ValueError:
+            # Default to mean if invalid input
+            center = int(np.mean(self.gray_image))
+            
+        lower = max(0, center - 12)
+        upper = min(255, center + 12)
 
         # Create mask and apply it
         mask = cv2.inRange(self.gray_image, lower, upper)
