@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 import time
 from collections import Counter
+import sys
 
 def duckduckgo_search(query):
     # DuckDuckGo search URL with added headers to mimic a browser request
@@ -42,7 +43,10 @@ def select_top_domain(links, top_n=10):
     return None
 
 def main():
-    query = input("Enter a keyword to search for datasheets and electronics info: ")
+    if len(sys.argv) > 1:
+        query = ' '.join(sys.argv[1:])
+    else:
+        query = input("Enter a keyword to search for datasheets and electronics info: ")
     search_results_html = duckduckgo_search(query)
     if search_results_html:
         links = extract_links(search_results_html)
