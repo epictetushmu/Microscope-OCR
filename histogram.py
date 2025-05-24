@@ -157,7 +157,7 @@ class ImageHistogramViewer:
         mode_frame = Frame(detect_frame)
         mode_frame.pack(fill=tk.X, pady=5)
         Label(mode_frame, text="Detection Mode:").pack(side=tk.LEFT, padx=(0, 5))
-        self.detect_mode = tk.StringVar(value="both")
+        self.detect_mode = tk.StringVar(value="black")  # Changed from "both" to "black"
         modes = [("Both", "both"), ("Only Black", "black"), ("Only Gray", "gray")]
         for text, value in modes:
             tk.Radiobutton(mode_frame, text=text, variable=self.detect_mode, value=value).pack(side=tk.LEFT, padx=5)
@@ -166,7 +166,7 @@ class ImageHistogramViewer:
         preview_frame = Frame(detect_frame)
         preview_frame.pack(fill=tk.X, pady=5)
         Label(preview_frame, text="Preview Style:").pack(side=tk.LEFT, padx=(0, 5))
-        self.preview_mode = tk.StringVar(value="highlight")
+        self.preview_mode = tk.StringVar(value="mask")  # Changed from "highlight" to "mask"
         preview_modes = [("Highlight", "highlight"), ("Mask Only", "mask")]
         for text, value in preview_modes:
             tk.Radiobutton(preview_frame, text=text, variable=self.preview_mode, value=value).pack(side=tk.LEFT, padx=5)
@@ -310,6 +310,19 @@ class ImageHistogramViewer:
         detected_label.image = detected_tk  # keep a reference
         detected_label.grid(row=1, column=1, padx=5, pady=5)
         
+        # Add export button below the detected image
+        export_btn = Button(
+            display_frame, 
+            text="Export Processed Image as PNG", 
+            command=lambda: self.export_processed_image(detected_rgb, final_mask),
+            bg="#1E88E5",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            padx=10,
+            pady=5
+        )
+        export_btn.grid(row=2, column=1, padx=5, pady=10, sticky="e")
+        
         # Only show separate mask if in highlight mode
         if preview_style == "highlight":
             # Show mask image below
@@ -318,10 +331,23 @@ class ImageHistogramViewer:
             mask_pil.thumbnail((800, 800))
             mask_tk = ImageTk.PhotoImage(mask_pil)
             
-            Label(display_frame, text="Detection Mask").grid(row=2, column=0, columnspan=2, padx=5, pady=5)
+            Label(display_frame, text="Detection Mask").grid(row=3, column=0, columnspan=2, padx=5, pady=5)
             mask_label = Label(display_frame, image=mask_tk)
             mask_label.image = mask_tk  # keep a reference
-            mask_label.grid(row=3, column=0, columnspan=2, padx=5, pady=5)
+            mask_label.grid(row=4, column=0, columnspan=2, padx=5, pady=5)
+            
+            # Add export button for mask as well
+            export_mask_btn = Button(
+                display_frame, 
+                text="Export Mask as PNG", 
+                command=lambda: self.export_processed_image(mask_img, final_mask),
+                bg="#1E88E5",
+                fg="white",
+                font=("Arial", 10, "bold"),
+                padx=10,
+                pady=5
+            )
+            export_mask_btn.grid(row=5, column=0, columnspan=2, padx=5, pady=10, sticky="e")
         
         # Add statistics
         stats_text = f"Detection Results:\n"
@@ -332,6 +358,46 @@ class ImageHistogramViewer:
         
         stats_label = Label(content_frame, text=stats_text, justify=tk.LEFT)
         stats_label.pack(padx=10, pady=10, anchor=tk.W)
+
+    def export_processed_image(self, image_array, mask):
+        """Export the processed image as a PNG file with transparency"""
+        # Ask user for save location
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+            title="Save Processed Image As"
+        )
+        
+        if file_path:
+            # Save the image with transparency
+            try:
+                # Create a transparent image where detected areas are white and background is transparent
+                # Start with an RGBA image (with alpha channel)
+                height, width = mask.shape[:2]
+                transparent_image = np.zeros((height, width, 4), dtype=np.uint8)
+                
+                # Set RGB channels to white (255) where mask is white
+                transparent_image[mask > 0] = [255, 255, 255, 255]  # White with full opacity
+                
+                # Background areas remain [0,0,0,0] which is transparent
+                
+                # Convert to PIL image and save
+                pil_image = Image.fromarray(transparent_image)
+                pil_image.save(file_path)
+                
+                # Show success message
+                success_window = Toplevel(self.root)
+                success_window.title("Export Successful")
+                Label(success_window, text=f"Transparent image successfully saved to:\n{file_path}", 
+                      pady=20, padx=20).pack()
+                Button(success_window, text="OK", command=success_window.destroy).pack(pady=10)
+            except Exception as e:
+                # Show error message if saving fails
+                error_window = Toplevel(self.root)
+                error_window.title("Export Failed")
+                Label(error_window, text=f"Failed to save image:\n{str(e)}", 
+                      pady=20, padx=20).pack()
+                Button(error_window, text="OK", command=error_window.destroy).pack(pady=10)
 
 if __name__ == "__main__":
     root = tk.Tk()
