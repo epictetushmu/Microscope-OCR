@@ -11,35 +11,60 @@ import numpy as np
 def preprocess_image(image_path):
     # Load the image using OpenCV
     image = cv2.imread(image_path)
-    # Convert image to grayscale for better OCR performance
+    
+    # Convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # Apply thresholding to enhance text regions (parameters may be adjusted)
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY_INV)
-    return image, gray, thresh
+    
+    # Apply bilateral filter to remove noise while preserving edges
+    denoised = cv2.bilateralFilter(gray, 9, 75, 75)
+    
+    # Apply adaptive thresholding
+    thresh = cv2.adaptiveThreshold(
+        denoised,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        11,
+        2
+    )
+    
+    # Apply morphological operations to clean up the image
+    kernel = np.ones((1, 1), np.uint8)
+    opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+    
+    # Enhance contrast using CLAHE
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    enhanced = clahe.apply(denoised)
+    
+    return image, gray, enhanced, opening
 
 def detect_text_regions(gray_image):
-    # Use pytesseract to get bounding boxes for text regions.
-    data = pytesseract.image_to_data(gray_image, output_type=pytesseract.Output.DICT)
+    # Configure Tesseract for better chip text recognition
+    custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    
+    # Use pytesseract to get bounding boxes for text regions
+    data = pytesseract.image_to_data(gray_image, config=custom_config, output_type=pytesseract.Output.DICT)
+    
     boxes = []
     n_boxes = len(data['level'])
     for i in range(n_boxes):
-        # Filter out weak detections (adjust confidence threshold as needed)
         try:
             conf = int(data['conf'][i])
         except ValueError:
             conf = 0
-        if conf > 0 and data['text'][i].strip() != "":
+        if conf > 30 and data['text'][i].strip() != "":  # Increased confidence threshold
             (x, y, w, h) = (data['left'][i], data['top'][i], data['width'][i], data['height'][i])
             boxes.append((x, y, w, h, data['text'][i]))
     return boxes
 
 def draw_boxes_on_image(image, boxes):
-    # Convert the OpenCV image (BGR) to RGB and then to a PIL image.
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     pil_img = Image.fromarray(image_rgb)
     draw = ImageDraw.Draw(pil_img)
     for (x, y, w, h, word) in boxes:
         draw.rectangle([(x, y), (x + w, y + h)], outline="red", width=2)
+        # Add text label above the box
+        draw.text((x, y-15), word, fill="red")
     return pil_img
 
 def select_image():
@@ -60,39 +85,41 @@ def select_image():
 
 def process_image():
     if img_path:
-        # Process image with OpenCV: get original, grayscale, and thresholded images.
-        orig_cv, gray, thresh = preprocess_image(img_path)
+        # Process image with enhanced preprocessing
+        orig_cv, gray, enhanced, opening = preprocess_image(img_path)
         
-        # Detect text regions from the grayscale image
-        boxes = detect_text_regions(gray)
+        # Detect text regions from the enhanced image
+        boxes = detect_text_regions(enhanced)
         
-        # Create an annotated image with bounding boxes drawn over the detected text areas.
+        # Create an annotated image with bounding boxes
         annotated_img = draw_boxes_on_image(orig_cv, boxes)
         
-        # Convert processed images to PIL for display and resize them to fit the preview window.
+        # Convert processed images to PIL for display
         gray_pil = Image.fromarray(gray)
         gray_pil.thumbnail((300, 300))
-        thresh_pil = Image.fromarray(thresh)
-        # Convert thresholded image to RGB for proper display in Tkinter.
-        thresh_pil = thresh_pil.convert("RGB")
-        thresh_pil.thumbnail((300, 300))
+        enhanced_pil = Image.fromarray(enhanced)
+        enhanced_pil.thumbnail((300, 300))
+        opening_pil = Image.fromarray(opening)
+        opening_pil = opening_pil.convert("RGB")
+        opening_pil.thumbnail((300, 300))
         annotated_img.thumbnail((300, 300))
         
-        # Extract text using pytesseract on the grayscale image for OCR result.
-        extracted_text = pytesseract.image_to_string(gray).strip()
+        # Extract text using enhanced configuration
+        custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        extracted_text = pytesseract.image_to_string(enhanced, config=custom_config).strip()
+        
         result_text.delete("1.0", tk.END)
         result_text.insert(tk.END, f"Detected text:\n{extracted_text}")
         
-        # Open a new Toplevel window to display all intermediate images in a 2x2 grid.
+        # Display all processed images
         proc_window = Toplevel(root)
         proc_window.title("Processed Images - Step by Step")
         
-        # Create labels for each image with their titles.
         # Original Image
         Label(proc_window, text="Original Image").grid(row=0, column=0, padx=10, pady=10)
         orig_img_tk = ImageTk.PhotoImage(original_image_pil)
         orig_label = Label(proc_window, image=orig_img_tk)
-        orig_label.image = orig_img_tk  # keep reference
+        orig_label.image = orig_img_tk
         orig_label.grid(row=1, column=0, padx=10, pady=10)
         
         # Grayscale Image
@@ -102,14 +129,14 @@ def process_image():
         gray_label.image = gray_img_tk
         gray_label.grid(row=1, column=1, padx=10, pady=10)
         
-        # Thresholded Image
-        Label(proc_window, text="Thresholded Image").grid(row=2, column=0, padx=10, pady=10)
-        thresh_img_tk = ImageTk.PhotoImage(thresh_pil)
-        thresh_label = Label(proc_window, image=thresh_img_tk)
-        thresh_label.image = thresh_img_tk
-        thresh_label.grid(row=3, column=0, padx=10, pady=10)
+        # Enhanced Image
+        Label(proc_window, text="Enhanced Image").grid(row=2, column=0, padx=10, pady=10)
+        enhanced_img_tk = ImageTk.PhotoImage(enhanced_pil)
+        enhanced_label = Label(proc_window, image=enhanced_img_tk)
+        enhanced_label.image = enhanced_img_tk
+        enhanced_label.grid(row=3, column=0, padx=10, pady=10)
         
-        # Annotated Image with bounding boxes for text regions
+        # Annotated Image
         Label(proc_window, text="Annotated Image").grid(row=2, column=1, padx=10, pady=10)
         annotated_img_tk = ImageTk.PhotoImage(annotated_img)
         annotated_label = Label(proc_window, image=annotated_img_tk)
@@ -118,7 +145,7 @@ def process_image():
 
 # Create the main window
 root = tk.Tk()
-root.title("IC Chip OCR - Step by Step Preview")
+root.title("Enhanced IC Chip OCR")
 
 img_path = None
 original_image_pil = None
