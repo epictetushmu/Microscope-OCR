@@ -7,6 +7,7 @@ os.environ["QT_QPA_PLATFORM"] = "offscreen"
 import cv2
 from PIL import Image, ImageTk
 import webbrowser
+import numpy as np
 
 # Helper to run a script in a new process
 def run_script(script_name):
@@ -29,8 +30,28 @@ def show_video_feed(device):
         return
     win = Toplevel(root)
     win.title(f"Video Feed: {device}")
-    l = Label(win)
+    
+    # Create frame for video and button
+    frame = tk.Frame(win)
+    frame.pack(pady=10)
+    
+    l = Label(frame)
     l.pack()
+    
+    def capture_and_process():
+        # Get the current frame
+        ret, frame = cap.read()
+        if ret:
+            # Save the frame in the temp directory
+            temp_path = os.path.join("images", "temp", "temp_capture.jpg")
+            cv2.imwrite(temp_path, frame)
+            # Run histogram.py with the captured image
+            run_script_with_arg("histogram.py", temp_path)
+    
+    # Add capture button
+    capture_btn = Button(frame, text="Capture & Process", command=capture_and_process)
+    capture_btn.pack(pady=10)
+    
     def update():
         ret, frame = cap.read()
         if ret:
@@ -44,6 +65,7 @@ def show_video_feed(device):
             win.after(30, update)
         else:
             cap.release()
+    
     update()
 
 root = tk.Tk()
@@ -63,19 +85,23 @@ def run_script_with_arg(script_name, arg):
     python_exe = sys.executable
     script_path = os.path.join(os.path.dirname(__file__), script_name)
     if arg:
-        # Capture output and show in GUI
-        proc = subprocess.Popen([python_exe, script_path, arg], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        def check_output():
-            out, err = proc.communicate()
-            result = out.strip() if out else err.strip()
-            # Try to extract a URL from the output
-            url = None
-            for line in result.splitlines():
-                if line.startswith("Selected Link:"):
-                    url = line.split("Selected Link:", 1)[-1].strip()
-                    break
-            show_datasheet_result(result, url)
-        root.after(100, check_output)
+        # For datasheet scraper, handle output and show results
+        if script_name == "datasheet-scraper.py":
+            proc = subprocess.Popen([python_exe, script_path, arg], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            def check_output():
+                out, err = proc.communicate()
+                result = out.strip() if out else err.strip()
+                # Try to extract a URL from the output
+                url = None
+                for line in result.splitlines():
+                    if line.startswith("Selected Link:"):
+                        url = line.split("Selected Link:", 1)[-1].strip()
+                        break
+                show_datasheet_result(result, url)
+            root.after(100, check_output)
+        else:
+            # For other scripts (like histogram.py), just run them with the argument
+            subprocess.Popen([python_exe, script_path, arg])
     else:
         subprocess.Popen([python_exe, script_path])
 

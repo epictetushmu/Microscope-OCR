@@ -5,6 +5,8 @@ from tkinter import filedialog, Label, Button, Toplevel, Scale, HORIZONTAL, Fram
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import sys
+import os
 
 class ScrollableFrame(tk.Frame):
     """A scrollable frame class that can automatically create scrollbars when content exceeds the frame size"""
@@ -60,6 +62,15 @@ class ImageHistogramViewer:
         self.image_path = None
         self.cv_image = None
         self.gray_image = None
+        
+        # Check if an image path was provided as command line argument
+        if len(sys.argv) > 1:
+            self.image_path = sys.argv[1]
+            if os.path.exists(self.image_path):
+                self.cv_image = cv2.imread(self.image_path)
+                self.gray_image = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2GRAY)
+                self.display_image(self.cv_image)
+                self.detect_button.config(state=tk.NORMAL)
 
     def load_image(self):
         self.image_path = filedialog.askopenfilename(
